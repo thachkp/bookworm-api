@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import bodyParser from "body-parser";
 import dotenv from "dotenv";
 import auth from "./routes/auth";
+import signup from './routes/signup';
 
 
 dotenv.config();
@@ -13,6 +14,8 @@ app.use(bodyParser.json());
 mongoose.connect(process.env.MONGODB_URL);
 
 app.use("/api/auth", auth);
+
+app.use("/api/users", signup);
 
 app.get('/*', (req, res) =>{
     res.sendFile(path.join(__dirname, 'index.html'));
