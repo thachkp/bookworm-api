@@ -1,63 +1,91 @@
-import express from 'express';
 import jwt from 'jsonwebtoken';
 import User from "../models/User";
 import { sendResetPasswordEmail } from '../mailer';
 
-const router = express.Router();
-
-router.post('/', (req, res) => {
+const logIn = async (req, res) => {
     const { credentials } = req.body;
-    User.findOne({
-        email: credentials.email
-    }).then(user => {
-        if(user && user.isValidPassword(credentials.password) ){
+
+    try {
+        const user = await User.findOne({
+            email: credentials.email
+        });
+        if (user.isValidPassword(credentials.password)) 
             res.json({ user: user.toAuthJSON() });
-        } else {
+        else {
             res.status(400).json({
                 errors : {
                     global: "Invalid credentials"
                 }
-            })
+            });
         }
-    });
+    } catch (err) {
+        res.status(400).json({
+            errors : {
+                global: "Invalid credentials"
+            }
+        });
+    }
+};
 
-});
-
-router.post('/confirmation', (req, res) => {
+const confirmEmail = async (req, res) => {
     const token = req.body.token;
-    User.findOneAndUpdate(
-        {confirmationToken: token},
-        {confirmationToken: "", confirmed: true},
-        {new: true}
-    ).then(user => 
-        user ? res.json({
+    try {
+        const user = await User.findOneAndUpdate(
+            {confirmationToken: token},
+            {confirmationToken: "", confirmed: true},
+            {new: true}
+        );
+        res.json({
             user: user.toAuthJSON()
-        }) :
+        });
+
+    } catch (error) {
         res.status(400).json({})
-    )
-});
+    }
+};
 
-router.post('/reset_password_request', (req, res) => {
-    User.findOne({ email: req.body.email })
-    .then( user => {
-        if( user ) {
-            sendResetPasswordEmail(user);
-            res.json({});
-        } else {
-            res.status(400).json({ errors: { global: "There is no user with such email"}});
-        }
-    });
-});
+const resetPasswordRequest = async (req, res) => {
+    try {
+        const user = await User.findOne({ email: req.body.email });
+        sendResetPasswordEmail(user);
+        res.json({});
+    } catch (error) {
+        res.status(400).json({ errors: { global: "There is no user with such email"}});
+    }
+};
 
-router.post('/validate_token', (req, res) => {
-    jwt.verify(req.body.token, process.env.JWT_SECRET, (err) => {
-        if ( err ){
-            res.status(401).json({});
-        }
-        else {
-            res.json({});
-        }
-    });
-});
+const validateToken = async (req, res) => {
 
-export default router;
+    try {
+        await jwt.verify(req.body.token, process.env.JWT_SECRET);
+        res.json({});
+    } catch (error) {
+        res.status(401).json({});
+
+    }
+};
+
+const resetPassword = async (req, res) => {
+    const { password, token } = req.body.data;
+
+    try {
+        const decoded = await jwt.verify(token, process.env.JWT_SECRET);
+        const user = await User.findOne({
+            _id: decoded._id});
+        user.setPassword(password);
+        user.save();
+        res.json({});
+    } catch (error) {
+        res.status(401).json({
+            errors: {
+                global: "Invalid token"
+            }
+        });
+    }
+};
+
+export {
+    logIn, confirmEmail,
+    resetPasswordRequest,
+    validateToken, resetPassword
+};
