@@ -5,7 +5,7 @@ import uniqueValidator from 'mongoose-unique-validator';
 
 
 const schema = new mongoose.Schema({
-    email:{
+    email: {
         type: String,
         required: true,
         lowercase: true,
@@ -24,6 +24,10 @@ const schema = new mongoose.Schema({
     confirmationToken: {
         type: String,
         default: ""
+    },
+    resetPasswordToken: {
+        type: String,
+        default: undefined
     }
 }, {timestamps: true})
 
@@ -39,12 +43,27 @@ schema.methods.setConfirmationToken = function setConfirmationToken(){
     this.confirmationToken = this.generateJWT();
 }
 
+schema.methods.setResetPasswordToken = function setResetPasswordToken(){
+    if (this.resetPasswordToken) {
+        jwt.decode(this.resetPasswordToken, process.env.JWT_SECRET, (err) => {
+            if ( err ) 
+                this.resetPasswordToken = this.generateResetPasswordToken();
+        });
+    } else {
+        this.resetPasswordToken = this.generateResetPasswordToken();
+    }
+}
+
+schema.methods.checkValidResetPasswordToken = function checkValidResetPasswordToken(token){
+    return this.resetPasswordToken === token;
+}
+
 schema.methods.generateConfirmationUrl = function generateConfirmationUrl(){
     return `${process.env.HOST}/confirmation/${this.confirmationToken}`;
 }
 
 schema.methods.generateResetPasswordUrl = function generateResetPasswordUrl(){
-    return `${process.env.HOST}/reset_password/${this.generateResetPasswordToken()}`;
+    return `${process.env.HOST}/reset_password/${this.resetPasswordToken}`;
 }
 
 schema.methods.generateJWT = function generateJWT() {

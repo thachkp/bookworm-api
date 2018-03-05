@@ -47,6 +47,9 @@ const confirmEmail = async (req, res) => {
 const resetPasswordRequest = async (req, res) => {
     try {
         const user = await User.findOne({ email: req.body.email });
+        user.setResetPasswordToken();
+        await user.save();
+
         sendResetPasswordEmail(user);
         res.json({});
     } catch (error) {
@@ -57,8 +60,19 @@ const resetPasswordRequest = async (req, res) => {
 const validateToken = async (req, res) => {
 
     try {
-        await jwt.verify(req.body.token, process.env.JWT_SECRET);
-        res.json({});
+        const decoded = await jwt.verify(req.body.token, process.env.JWT_SECRET);
+        const user = await User.findOne({
+            _id: decoded._id});
+        const valid = user.checkValidResetPasswordToken(req.body.token);
+
+        if(!valid) {
+            res.status(401).json({
+                errors: {
+                    global: "Invalid token"
+                }
+            });
+        } else 
+            res.json({});
     } catch (error) {
         res.status(401).json({});
 
@@ -70,11 +84,14 @@ const resetPassword = async (req, res) => {
 
     try {
         const decoded = await jwt.verify(token, process.env.JWT_SECRET);
+
         const user = await User.findOne({
             _id: decoded._id});
+
         user.setPassword(password);
-        user.save();
+        await user.save();
         res.json({});
+
     } catch (error) {
         res.status(401).json({
             errors: {
